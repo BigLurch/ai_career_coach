@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import LogoutButton from "@/components/auth/LogoutButton";
 import { getBackendHealth } from "@/lib/api";
+import Link from "next/link";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -45,6 +46,12 @@ export default async function DashboardPage() {
                         <p className="mt-2 text-sm text-gray-600">
                             Nästa steg blir att ladda upp ditt CV som PDF.
                         </p>
+                        <Link
+                            href="/upload"
+                            className="mt-4 inline-block rounded-lg bg-black px-4 py-2 text-sm text-white hover:opacity-90"
+                        >
+                            Gå till upload
+                        </Link>
                     </div>
 
                     <div className="rounded-2xl bg-white p-6 shadow-sm">
