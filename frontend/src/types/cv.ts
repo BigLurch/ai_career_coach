@@ -6,4 +6,6 @@ export type CvRecord = {
     file_size: number | null;
     mime_type: string | null;
     uploaded_at: string;
+    extracted_text?: string | null;
+    extraction_status?: string | null;
 };

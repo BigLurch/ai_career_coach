@@ -13,7 +13,9 @@ class Settings(BaseSettings):
 
     supabase_url: str = ""
     supabase_service_role_key: str = ""
-    openai_api_key: str = ""
+
+    openrouter_api_key: str = ""
+    openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
 
     model_config = SettingsConfigDict(
         env_file=".env",
