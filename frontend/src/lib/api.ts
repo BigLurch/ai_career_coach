@@ -32,3 +32,23 @@ export async function analyzeCv(cvId: string) {
 
     return response.json();
 }
+
+export async function analyzeJobMatch(cvId: string, jobDescription: string) {
+    const response = await fetch(`${API_BASE_URL}/analysis/job-match/${cvId}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+            job_description: jobDescription,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Failed to analyze job match");
+    }
+
+    return response.json();
+}

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { analyzeCv } from "@/lib/api";
-import type { CVAnalysis } from "@/types/analysis";
+import { analyzeCv, analyzeJobMatch } from "@/lib/api";
+import type { CVAnalysis, JobMatchAnalysis } from "@/types/analysis";
 import type { CvRecord } from "@/types/cv";
 
 export default function UploadPage() {
@@ -13,11 +13,14 @@ export default function UploadPage() {
 
     const [isUploading, setIsUploading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isMatching, setIsMatching] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
 
     const [latestCv, setLatestCv] = useState<CvRecord | null>(null);
     const [analysis, setAnalysis] = useState<CVAnalysis | null>(null);
+    const [jobMatch, setJobMatch] = useState<JobMatchAnalysis | null>(null);
+    const [jobDescription, setJobDescription] = useState("");
 
     const fetchLatestCv = async () => {
         const supabase = createClient();
@@ -57,6 +60,7 @@ export default function UploadPage() {
         setErrorMessage("");
         setSuccessMessage("");
         setAnalysis(null);
+        setJobMatch(null);
 
         const file = fileInputRef.current?.files?.[0];
 
@@ -147,6 +151,34 @@ export default function UploadPage() {
             setErrorMessage(message);
         } finally {
             setIsAnalyzing(false);
+        }
+    };
+
+    const handleJobMatch = async () => {
+        if (!latestCv) {
+            setErrorMessage("Inget CV hittades att matcha.");
+            return;
+        }
+
+        if (jobDescription.trim().length < 20) {
+            setErrorMessage("Klistra in en lite mer komplett jobbannons först.");
+            return;
+        }
+
+        setErrorMessage("");
+        setSuccessMessage("");
+        setIsMatching(true);
+        setJobMatch(null);
+
+        try {
+            const result = await analyzeJobMatch(latestCv.id, jobDescription);
+            setJobMatch(result.analysis);
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : "Kunde inte analysera jobbmatchning.";
+            setErrorMessage(message);
+        } finally {
+            setIsMatching(false);
         }
     };
 
@@ -246,15 +278,47 @@ export default function UploadPage() {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleAnalyze}
-                                disabled={isAnalyzing}
-                                className="rounded-lg bg-black px-5 py-3 text-white hover:opacity-90 disabled:opacity-50"
-                            >
-                                {isAnalyzing ? "Analyserar..." : "Analysera CV"}
-                            </button>
+                            <div className="flex flex-wrap gap-3">
+                                <button
+                                    onClick={handleAnalyze}
+                                    disabled={isAnalyzing}
+                                    className="rounded-lg bg-black px-5 py-3 text-white hover:opacity-90 disabled:opacity-50"
+                                >
+                                    {isAnalyzing ? "Analyserar..." : "Analysera CV"}
+                                </button>
+                            </div>
                         </div>
                     )}
+                </div>
+
+                <div className="rounded-2xl bg-white p-8 shadow-sm">
+                    <h2 className="text-xl font-bold text-gray-900">Jobbmatchning</h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                        Klistra in en jobbannons för att se hur väl ditt CV matchar rollen.
+                    </p>
+
+                    <div className="mt-6 space-y-4">
+                        <div>
+                            <label className="mb-2 block text-sm font-medium text-gray-700">
+                                Jobbannons
+                            </label>
+                            <textarea
+                                value={jobDescription}
+                                onChange={(e) => setJobDescription(e.target.value)}
+                                placeholder="Klistra in hela jobbannonsen här..."
+                                rows={10}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-black"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleJobMatch}
+                            disabled={isMatching || !latestCv}
+                            className="rounded-lg bg-black px-5 py-3 text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                            {isMatching ? "Analyserar matchning..." : "Analysera matchning"}
+                        </button>
+                    </div>
                 </div>
 
                 {analysis && (
@@ -298,6 +362,62 @@ export default function UploadPage() {
                                 <h3 className="text-lg font-semibold text-gray-900">Nästa steg</h3>
                                 <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-gray-700">
                                     {analysis.next_steps.map((item, index) => (
+                                        <li key={index}>{item}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {jobMatch && (
+                    <div className="rounded-2xl bg-white p-8 shadow-sm">
+                        <div className="mb-6 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-gray-900">Jobbmatchning</h2>
+                            <div className="rounded-full bg-black px-4 py-2 text-sm font-semibold text-white">
+                                Match: {jobMatch.match_score}/100
+                            </div>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Sammanfattning</h3>
+                                <p className="mt-2 text-sm leading-6 text-gray-700">
+                                    {jobMatch.summary}
+                                </p>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Det som matchar bra</h3>
+                                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-gray-700">
+                                    {jobMatch.strengths.map((item, index) => (
+                                        <li key={index}>{item}</li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Saknade skills</h3>
+                                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-gray-700">
+                                    {jobMatch.missing_skills.map((item, index) => (
+                                        <li key={index}>{item}</li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Keywords att lägga till</h3>
+                                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-gray-700">
+                                    {jobMatch.keywords_to_add.map((item, index) => (
+                                        <li key={index}>{item}</li>
+                                    ))}
+                                </ul>
+                            </div>
+
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Nästa steg</h3>
+                                <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-gray-700">
+                                    {jobMatch.next_steps.map((item, index) => (
                                         <li key={index}>{item}</li>
                                     ))}
                                 </ul>
